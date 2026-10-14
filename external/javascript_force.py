@@ -3,12 +3,9 @@
 JavaScript
 ==========
 
-Example of writing JSON format graph data and using the D3 JavaScript library
-to produce an HTML/JavaScript drawing.
-
-You will need to download the following directory:
-
-- https://github.com/networkx/networkx/tree/main/examples/external/force
+Create a D3 force-directed visualization of the Florentine families network.
+Node size represents eigenvector centrality, and node color represents
+community membership.
 """
 
 import json
@@ -16,18 +13,43 @@ import json
 import flask
 import networkx as nx
 
-G = nx.barbell_graph(6, 3)
-# this d3 example uses the name attribute for the mouse-hover value,
-# so add a name to each node
-for n in G:
-    G.nodes[n]["name"] = n
-# write json formatted data
-d = nx.json_graph.node_link_data(G, edges="links")  # node-link format to serialize
-# write json
-json.dump(d, open("force/force.json", "w"))
+
+# Create the Florentine families network
+G = nx.florentine_families_graph()
+
+
+# Calculate the network's communities
+communities = list(nx.community.label_propagation_communities(G))
+
+# Calculate eigenvector centrality for every family
+centralities = nx.eigenvector_centrality(G)
+
+
+# Add name, community, and centrality attributes to each node
+for family in G.nodes():
+    for community_number, community in enumerate(communities):
+        if family in community:
+            G.nodes[family].update(
+                {
+                    "name": family,
+                    "community": str(community_number),
+                    "centrality": centralities[family],
+                }
+            )
+
+
+# Convert the graph into node-link data that D3 can read
+graph_data = nx.json_graph.node_link_data(G, edges="links")
+
+
+# Write the graph data to a JSON file
+with open("force/force.json", "w") as json_file:
+    json.dump(graph_data, json_file)
+
 print("Wrote node-link JSON data to force/force.json")
 
-# Serve the file over http to allow for cross origin requests
+
+# Serve the visualization through Flask
 app = flask.Flask(__name__, static_folder="force")
 
 
